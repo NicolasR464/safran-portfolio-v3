@@ -1,12 +1,29 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import {
+    clerkClient,
+    clerkMiddleware,
+    createRouteMatcher,
+} from '@clerk/nextjs/server'
 
-const isPublicRoute = createRouteMatcher([
-    `${process.env.CLERK_SIGN_IN_URL}(.*)`,
-    '/',
-])
+const isAdminRoute = createRouteMatcher(['/admin(.*)'])
 
 export default clerkMiddleware(async (auth, req) => {
-    if (!isPublicRoute(req)) {
+    const { userId } = await auth()
+
+    console.log('userId', userId)
+
+    if (userId) {
+        const client = await clerkClient()
+
+        const user = await client.users.getUser(userId)
+
+        const role = user.publicMetadata.role
+
+        if (role !== 'admin' && isAdminRoute(req)) {
+            return Response.redirect(new URL('/', req.url))
+        }
+    }
+
+    if (isAdminRoute(req)) {
         await auth.protect()
     }
 })
